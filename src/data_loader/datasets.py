@@ -10,18 +10,18 @@ class CustomDatasetCaption(Dataset):
     def __init__(self, dataset, split, clip_model):
         assert dataset in ["coco-lt", "voc-lt", "coco", "voc"]
         if dataset == 'coco-lt':
-            self.data_source = ImageListCaption(root='/data2/yanjiexuan/coco/data/',
-                                        list_file='/home/yanjiexuan/multi-label-fsl/RC-Tran-LT/data/coco/coco_lt_%s.txt' % split,
-                                        caption_file='/home/yanjiexuan/multi-label-fsl/RC-Tran-LT/data/coco/coco_lt_captions.txt',
-                                        label_file='/home/yanjiexuan/multi-label-fsl/RC-Tran-LT/data/coco/coco_labels.txt',
+            self.data_source = ImageListCaption(root='data/coco/data/',
+                                        list_file='./data/coco/coco_lt_%s.txt' % split,
+                                        caption_file='./data/coco/coco_lt_captions.txt',
+                                        label_file='./data/coco/coco_labels.txt',
                                         nb_classes=80,
                                         split=split,
                                         clip_model=clip_model)
         elif dataset == 'voc-lt':
-            self.data_source = ImageListCaption(root='/data2/yanjiexuan/voc',
-                                        list_file='/home/yanjiexuan/multi-label-fsl/RC-Tran-LT/data/voc/voc_lt_%s.txt' % split,
-                                        caption_file='/home/yanjiexuan/multi-label-fsl/RC-Tran-LT/data/voc/voc_lt_captions.txt',
-                                        label_file='/home/yanjiexuan/multi-label-fsl/RC-Tran-LT/data/voc/voc_labels.txt',
+            self.data_source = ImageListCaption(root='data/voc',
+                                        list_file='./data/voc/voc_lt_%s.txt' % split,
+                                        caption_file='./data/voc/voc_lt_captions.txt',
+                                        label_file='./data/voc/voc_labels.txt',
                                         nb_classes=20,
                                         split=split,
                                         clip_model=clip_model)
@@ -46,15 +46,15 @@ class CustomDataset(Dataset):
     def __init__(self, dataset, split, inp_name=None):
         assert dataset in ["coco-lt", "voc-lt", "voc", "nus-wide"]
         if dataset == 'coco-lt':
-            self.data_source = ImageList(root='/data2/yanjiexuan/coco/data/',
-                                        list_file='/home/yanjiexuan/multi-label-fsl/RC-Tran-LT/data/coco/coco_lt_%s.txt' % split,
-                                        label_file='/home/yanjiexuan/multi-label-fsl/RC-Tran-LT/data/coco/coco_labels.txt',
+            self.data_source = ImageList(root='data/coco/data/',
+                                        list_file='./data/coco/coco_lt_%s.txt' % split,
+                                        label_file='./data/coco/coco_labels.txt',
                                         nb_classes=80,
                                         split=split)
         elif dataset == 'voc-lt':
-            self.data_source = ImageList(root='/data2/yanjiexuan/voc',
-                                        list_file='/home/yanjiexuan/multi-label-fsl/RC-Tran-LT/data/voc/voc_lt_%s.txt' % split,
-                                        label_file='/home/yanjiexuan/multi-label-fsl/RC-Tran-LT/data/voc/voc_labels.txt',
+            self.data_source = ImageList(root='data/voc',
+                                        list_file='./data/voc/voc_lt_%s.txt' % split,
+                                        label_file='./data/voc/voc_labels.txt',
                                         nb_classes=20,
                                         split=split)
 
@@ -71,7 +71,7 @@ class CustomDataset(Dataset):
 
     def __getitem__(self, idx):
         img, target = self.data_source.get_sample(idx)
-        return img, target, self.inp
+        return img, target
 
 def build_dataset_with_caption(dataset, split, clip_model=None):
     assert split in ['train', 'test', 'val']
@@ -98,14 +98,12 @@ def build_dataset(dataset, split, inp_name):
     if split == 'train':
         dataset = CustomDataset(
         dataset=dataset, 
-        split=split,
-        inp_name=inp_name
+        split=split
         )
     elif split == 'test':
         dataset = CustomDataset(
         dataset=dataset, 
-        split=split,
-        inp_name=inp_name
+        split=split
         )
 
     return dataset
