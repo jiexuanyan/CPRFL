@@ -134,9 +134,8 @@ class MultiLabelEngine():
                 models[0].train()
                 self.meter_reset()
                 self.train(models, train_loader, criterion, optimizer, scheduler, scaler, epoch)
-                # _, _ = self.meter_print()
                 if epoch >10: #for coco and nus-wide
-                # if epoch >20: #for voc 2007
+
                 # evaluate step
                     models[0].eval()
                     self.meter_reset()
@@ -149,39 +148,29 @@ class MultiLabelEngine():
         regular_model = models[0]
         ema_model = models[1]
         val_loader = tqdm(val_loader, desc='Test')
-        for i, (inputData, target, semantic) in enumerate(val_loader):
+        for i, (inputData, target) in enumerate(val_loader):
             # compute output
             target = target.cuda()
-            semantic = semantic[0].cuda().float()
             target = target.squeeze()
             # regular model
             with torch.no_grad():
                 with autocast():
                     # regular model
-                    regular_cls_output, regular_semantic_output = regular_model(inputData.cuda())
+                    regular_cls_output, _ = regular_model(inputData.cuda())
                     regular_cls_output = regular_cls_output.float()
-                    regular_semantic_output = regular_semantic_output.float()
 
                     regular_overall_loss = criterion[0](regular_cls_output, target)
-                    if use_cos:
-                        regular_cos_loss = criterion[1](semantic.clone(), regular_semantic_output.cuda())*inputData.size(0)
-                    else:
-                        regular_cos_loss = torch.tensor(0.0)
-                    # regular_cos_loss = torch.tensor(0.0)
-                    regular_loss = regular_overall_loss + regular_cos_loss
+                    
+                    regular_loss = regular_overall_loss
             # ema model
             with torch.no_grad():
-                ema_cls_output, ema_semantic_output = ema_model.module(inputData.cuda())
+                ema_cls_output, _ = ema_model.module(inputData.cuda())
                 ema_cls_output = ema_cls_output.float()
-                ema_semantic_output = ema_semantic_output.float()
                 ema_overall_loss = criterion[0](ema_cls_output, target)
-                if use_cos:
-                    ema_cos_loss = criterion[1](semantic.clone(), ema_semantic_output.cuda())*inputData.size(0)
-                else:
-                    ema_cos_loss = torch.tensor(0.0)
-                ema_loss = ema_overall_loss + ema_cos_loss
+               
+                ema_loss = ema_overall_loss
 
-            val_loader.set_postfix(cls=regular_overall_loss.item(), cos = regular_cos_loss.item(), e_cls=ema_overall_loss.item(), e_cos = ema_cos_loss.item())
+            val_loader.set_postfix(cls=regular_overall_loss.item(), e_cls=ema_overall_loss.item())
 
             self.regular_ap_meter.add(regular_cls_output.data, target)
             self.ema_ap_meter.add(ema_cls_output.data, target)
@@ -193,22 +182,17 @@ class MultiLabelEngine():
         regular_model = models[0]
         ema_model = models[1]
         train_loader = tqdm(train_loader, desc='Train Epoch '+str(epoch))
-        for i, (inputData, target, semantic) in enumerate(train_loader):
+        for i, (inputData, target) in enumerate(train_loader):
             inputData = inputData.cuda()
             target = target.cuda()
-            semantic = semantic[0].cuda().float()
             target = target.squeeze()
             with autocast():  # mixed precision
-                cls_output, semantic_output = regular_model(inputData)
+                cls_output, _ = regular_model(inputData)
                 cls_output = cls_output.float()
-                semantic_output = semantic_output.float()
                 
                 cls_loss = criterion[0](cls_output, target)
-                if use_cos:
-                    cos_loss = criterion[1](semantic.clone(), semantic_output.cuda())*inputData.size(0)
-                else:
-                    cos_loss = torch.tensor(0.0)
-            regular_loss = cls_loss + cos_loss
+    
+            regular_loss = cls_loss
 
             regular_model.zero_grad()
             optimizer.param_groups[3]["lr"] = optimizer.param_groups[3]["lr"]*0.1
@@ -224,20 +208,15 @@ class MultiLabelEngine():
 
             ema_model.update(regular_model)
             with torch.no_grad():
-                # ema_cls_output, ema_semantic_output = ema_model.module(inputData, semantic)
-                ema_cls_output, ema_semantic_output = ema_model.module(inputData.float())
+                ema_cls_output, _ = ema_model.module(inputData.float())
                 ema_cls_output = ema_cls_output.float()
-                ema_semantic_output = ema_semantic_output.float()
 
             ema_cls_loss = criterion[0](ema_cls_output, target)
-            if use_cos:
-                ema_cos_loss = criterion[1](semantic.clone(), ema_semantic_output.cuda())*inputData.size(0)
-            else:
-                ema_cos_loss = torch.tensor(0.0)
-            ema_loss = ema_cls_loss + ema_cos_loss
+        
+            ema_loss = ema_cls_loss
             
             # store information
-            train_loader.set_postfix(cls=cls_loss.item(), cos = cos_loss.item(), e_cls=ema_cls_loss.item(), e_cos = ema_cos_loss.item(), lr=temp_lr)
+            train_loader.set_postfix(cls=cls_loss.item(), e_cls=ema_cls_loss.item(), lr=temp_lr)
 
             self.regular_ap_meter.add(cls_output.data, target)
             self.ema_ap_meter.add(ema_cls_output.data, target)
@@ -253,70 +232,28 @@ class MultiLabelEngine():
         if not os.path.exists('LT_checkpoint/'):
             os.mkdir('LT_checkpoint/')
 
-        # torch.save({
-        #     'epoch': epoch,
-        #     'score': regular_map,
-        #     'model': 'regular',
-        #     'state_dict': regular_model.state_dict(),
-        # }, os.path.join('checkpoint/', 'regular_{}_cur.ckpt'.format(model_name)))
-
-        # torch.save({
-        #     'epoch': epoch,
-        #     'score': ema_map,
-        #     'model': 'ema',
-        #     'state_dict': ema_model.module.state_dict(),
-        # }, os.path.join('checkpoint/', 'EMA_{}_cur.ckpt'.format(model_name)))
-
         # # save best mAP model
         if regular_map > self.highest_regular_map:
             self.highest_regular_map = regular_map
-        #     if self.highest_regular_model is not None:
-        #         os.remove(os.path.join('checkpoint/', self.highest_regular_model))
-        #     self.highest_regular_model = 'regular_{}_best_{score:.3f}_e{epo}.ckpt'.format(model_name, score=regular_map, epo=epoch)
-        #     torch.save({
-        #         'epoch': epoch,
-        #         'score': regular_map,
-        #         'model': 'regular',
-        #         'state_dict': regular_model.state_dict(),
-        #     }, os.path.join('checkpoint/', self.highest_regular_model))
-            # if self.dataset == 'coco-lt' or self.dataset == 'voc-lt':
-            #     ltAnalysis(regular_ap, self.dataset)
 
 
         if ema_map > self.highest_ema_map:
             self.highest_ema_map = ema_map
             if self.highest_ema_model is not None:
-                os.remove(os.path.join('/data2/yanjiexuan/checkpoints/RC-Tran/LT_checkpoint/', self.highest_ema_model))
+                os.remove(os.path.join('data/checkpoints/LT_checkpoint/', self.highest_ema_model))
             self.highest_ema_model = 'ema_{}_best_{score:.3f}_e{epo}.ckpt'.format(model_name, score=ema_map, epo=epoch)
             torch.save({
                 'epoch': epoch,
                 'score': ema_map,
                 'model': 'ema',
                 'state_dict': ema_model.module.state_dict(),
-            }, os.path.join('/data2/yanjiexuan/checkpoints/RC-Tran/LT_checkpoint/', self.highest_ema_model))
+            }, os.path.join('data/checkpoints/LT_checkpoint/', self.highest_ema_model))
             if self.dataset == 'coco-lt' or self.dataset == 'voc-lt':
                 ltAnalysis(ema_ap, self.dataset)
         
         # '_' means not the best
         self.highest_regular_model = 'regular_{}_best_e{epo}_{score:.3f}.ckpt'.format(model_name, epo=epoch, score=regular_map)
         cur = 'ema_{}_e{epo}_{score:.3f}.ckpt'.format(model_name, epo=epoch, score=ema_map)
-        # if epoch in [9,10]:
-        #     torch.save({
-        #         'epoch': epoch,
-        #         'score': regular_map,
-        #         'model': 'regular',
-        #         'state_dict': regular_model.state_dict(),
-        #     }, os.path.join('checkpoint/', "_"+self.highest_regular_model))
-
-        # if epoch in [22,23,24,25,26]:# for voc
-        # if epoch in [11,12,13,14,15]: #for coco and nus-wide
-        #     torch.save({
-        #         'epoch': epoch,
-        #         'score': ema_map,
-        #         'model': 'ema',
-        #         'state_dict': ema_model.module.state_dict(),
-        #     }, os.path.join('/data2/yanjiexuan/checkpoints/RC-Tran/LT_checkpoint/', "_"+cur))    
-
 
 
         print('------------------------------------------------->>>>>>> Highest Experimental Results on {}'.format(model_name))
