@@ -1,7 +1,6 @@
 import torch
 from torch.utils.data import Dataset
 from src.data_loader.imagelist import *
-import pickle
 
 class CustomDatasetCaption(Dataset):
     """Dataset.
@@ -43,7 +42,7 @@ class CustomDataset(Dataset):
     """Dataset.
     """
 
-    def __init__(self, dataset, split, inp_name=None):
+    def __init__(self, dataset, split):
         assert dataset in ["coco-lt", "voc-lt", "voc", "nus-wide"]
         if dataset == 'coco-lt':
             self.data_source = ImageList(root='data/coco/data/',
@@ -61,10 +60,6 @@ class CustomDataset(Dataset):
         self.targets = self.data_source.labels # one-hot label
         self.categories = self.data_source.categories
         self.fns = self.data_source.fns
-
-        with open(inp_name, 'rb') as f:
-            self.inp = pickle.load(f)
-        self.inp_name = inp_name
 
     def __len__(self):
         return self.data_source.get_length()
