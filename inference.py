@@ -21,9 +21,9 @@ def main(args):
 
     # Load Image Encoder
     if args.pretrain_clip == "RN50":
-        pretrain_clip_path = '/data2/yanjiexuan/huggingface/openai/pretrained/RN50.pt'
+        pretrain_clip_path = 'datahuggingface/openai/pretrained/RN50.pt'
     elif args.pretrain_clip == "ViT16":
-        pretrain_clip_path = '/data2/yanjiexuan/huggingface/openai/pretrained/ViT-B-16.pt'
+        pretrain_clip_path = 'data/huggingface/openai/pretrained/ViT-B-16.pt'
 
     print(f"Loading CLIP (backbone: {args.pretrain_clip})")
     clip_model, preprocess = clip.load(pretrain_clip_path, device='cpu', jit=False) # Must set jit=False for training
@@ -66,21 +66,15 @@ def main(args):
         'max_epoch': 150,
         'resume': args.resume,
         'evaluation': args.evaluate,
-        # 'alpha': args.alpha,
         'drop':args.drop,
         'train': False,
 
         'dataset':args.dataset,
-        # 'inp_seman':inp_seman,
-        # 'data': args.data,
-        # 'epis': args.epis,
-        # 'shot': args.shot,
         'fix_sample':False,
 
         "head_num":head_num,
         "dim_head":dim_head,
         "feature_d":feature_d,
-        # "use_cos":use_cos,
         "nonlinear":nonlinear,
         "out2_neck":out2_neck,
         "mlp_dim":mlp_dim,
@@ -103,7 +97,7 @@ def main(args):
     transform = transforms.Compose([transforms.Resize((448,448)),
                                  transforms.ToTensor(),
                                         ])
-    img = Image.open('/data2/yanjiexuan/coco/data/val2017/000000369751.jpg').convert('RGB')
+    img = Image.open('data/coco/data/val2017/000000369751.jpg').convert('RGB')
     img = transform(img).unsqueeze(0)
 
     # Infer 
@@ -119,8 +113,6 @@ def main(args):
 
     print("Top-10 Predictions: ")
     print(topk_preds)
-    # for idx in topk_preds[0]:
-    #     print(dataset_classes[idx].strip().ljust(20) + str(float(pred_score[:, idx].data))[:6])
 
 if __name__ == "__main__":
 
@@ -128,8 +120,8 @@ if __name__ == "__main__":
 
     parser.add_argument('--dataset', help='dataset', default='coco-lt',type=str,choices=['coco-lt','voc-lt'])
     parser.add_argument('--backbone', default='resnet101')
-    parser.add_argument('--pretrained', default='/data2/yanjiexuan/checkpoints/RC-Tran/pretrained_models/resnet101.pth', type=str)
-    parser.add_argument('--resume', default='/data2/yanjiexuan/checkpoints/RC-Tran/LT_checkpoint/ema_Encoder_nonlinear_d8_2048_mlp2048_0.5x_lr5e-5_asl_clip_coco_best_66.691_e15.ckpt', type=str, metavar='PATH',
+    parser.add_argument('--pretrained', default='data/checkpoints/pretrained_models/resnet101.pth', type=str)
+    parser.add_argument('--resume', default='', type=str, metavar='PATH',
                     help='path to latest checkpoint (default: none)')
     parser.add_argument('-e', '--evaluate', dest='evaluate', action='store_true', default = True,
                     help='evaluate model on validation set')
@@ -137,7 +129,7 @@ if __name__ == "__main__":
     parser.add_argument('--drop', default=0.6, type=float, help='dropout rate')
 
     parser.add_argument('--feature', default='', type=str)
-    # parser.add_argument('--image_path', help='image path', default='/data2/yanjiexuan/voc/VOCdevkit/VOC2007/JPEGImages/000014.jpg')
+    # parser.add_argument('--image_path', help='image path', default='data/voc/VOCdevkit/VOC2007/JPEGImages/000014.jpg')
 
     parser.add_argument('--pretrain_clip', default='RN50', type=str, choices=['RN50', 'ViT16'], help='pretrained clip backbone')
 
