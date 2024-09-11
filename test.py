@@ -6,7 +6,7 @@ import torch.nn as nn
 import torch.nn.parallel
 import torch.optim
 from utils.LT_engine_test import MultiLabelEngine
-# from src.loss_functions.losses import AsymmetricLoss, CosLoss
+
 from config import *
 torch.multiprocessing.set_sharing_strategy('file_system')
 
@@ -18,13 +18,9 @@ from src.data_loader.datasets import build_dataset
 import tqdm
 from src.helper_functions.metrics import *
 
-# from src.models.model_init_text import MyModel
-from src.models.model_coop import MyModel
-# from src.models.model_visual_fine import MyModel
-# from src.models.model_cocoop import MyModel
+from src.models.build_model_TF import MyModel
 
 import clip
-# use_cos = True
 
 parser = argparse.ArgumentParser(description='PyTorch MS_COCO Training')
 parser.add_argument('--dataset', help='dataset', default='coco-lt',type=str,choices=['coco-lt','voc-lt'])
@@ -32,7 +28,7 @@ parser.add_argument('--image-size', default=448, type=int,
                     metavar='N', help='input image size (default: 448)')
 parser.add_argument('--lr', default=1e-4, type=float)
 parser.add_argument('--backbone', default='resnet101')
-parser.add_argument('--pretrained', default='/data2/yanjiexuan/checkpoints/RC-Tran/pretrained_models/resnet101.pth', type=str)
+parser.add_argument('--pretrained', default='data/checkpoints/pretrained_models/resnet101.pth', type=str)
 parser.add_argument('--num-classes', default=80)
 parser.add_argument('-j', '--workers', default=2, type=int, metavar='N',
                     help='number of data loading workers (default: 16)')
@@ -44,12 +40,8 @@ parser.add_argument('--resume', default='', type=str, metavar='PATH',
                     help='path to latest checkpoint (default: none)')
 parser.add_argument('-e', '--evaluate', dest='evaluate', action='store_true', default = True,
                     help='evaluate model on validation set')
-# parser.add_argument('--alpha', default=1, type=float,
-#                     help='the value of hyper-parameter alpha')
 parser.add_argument('--drop', default=0.6, type=float, help='dropout rate')
-# parser.add_argument('--shot', default=5, type=int, choices=[1,5], help='1 or 5 shot')
-# parser.add_argument('--epis', nargs = '+', type=str, default=['1','2','3','4','5','6','7','8','9','10'])
-# parser.add_argument('--epis', nargs = '+', type=str, default=['8','9','10'])
+
 parser.add_argument('--feature', default='', type=str)
 parser.add_argument('--emb', help='word2vec', default='glove')
 
@@ -62,18 +54,11 @@ parser.add_argument('--class_token_position', default='end', type=str, help='pos
 def main():
     args = parser.parse_args()
     feature = args.feature
-    # hyper-parameters
-    # if args.backbone == 'resnet101':
-    #     from src.models.build_model_TF import MyModel
-    # elif args.backbone == 'googlenetv3':
-    #     from src.models.build_model_g_TF import MyModel
-    # elif args.backbone == 'fc':
-    #     from src.models.build_model_fc import MyModel
 
     if args.pretrain_clip == "RN50":
-        pretrain_clip_path = '/data2/yanjiexuan/huggingface/openai/pretrained/RN50.pt'
+        pretrain_clip_path = 'data/huggingface/openai/pretrained/RN50.pt'
     elif args.pretrain_clip == "ViT16":
-        pretrain_clip_path = '/data2/yanjiexuan/huggingface/openai/pretrained/ViT-B-16.pt'
+        pretrain_clip_path = 'data/huggingface/openai/pretrained/ViT-B-16.pt'
 
     print(f"Loading CLIP (backbone: {args.pretrain_clip})")
     clip_model, preprocess = clip.load(pretrain_clip_path, device='cpu', jit=False) # Must set jit=False for training
@@ -102,7 +87,7 @@ def main():
             'oven', 'toaster', 'sink', 'refrigerator', 'book', 'clock', 'vase',
             'scissors', 'teddy_bear', 'hair_drier', 'toothbrush'
             ]
-        val_dataset = build_dataset(dataset=args.dataset, split='test', inp_name='/home/yanjiexuan/multi-label-fsl/RC-Tran-LT/data/coco/coco_glove_300_coco_sequence.pkl')
+        val_dataset = build_dataset(dataset=args.dataset, split='test')
 
     elif args.dataset=='voc-lt': 
         dataset_classes = [
@@ -110,7 +95,7 @@ def main():
             'cat', 'chair', 'cow', 'diningtable', 'dog', 'horse','motorbike', 
             'person', 'pottedplant', 'sheep', 'sofa', 'train','tvmonitor'
             ]
-        val_dataset = build_dataset(dataset=args.dataset, split='test', inp_name='/home/yanjiexuan/multi-label-fsl/RC-Tran-LT/data/voc/voc_glove_word2vec.pkl')
+        val_dataset = build_dataset(dataset=args.dataset, split='test')
 
     args = {
         'backbone': args.backbone,
@@ -121,24 +106,18 @@ def main():
         'evaluation': args.evaluate,
         'threshold': args.threshold,
         'lr': args.lr,
-        # 'alpha': args.alpha,
         'drop':args.drop,
         'train': False,
 
         'dataset':args.dataset,
-        # 'inp_seman':inp_seman,
-        # 'data': args.data,
         'image_size':args.image_size,
         'workers':args.workers,
         'batch_size': args.batch_size,
-        # 'epis': args.epis,
-        # 'shot': args.shot,
         'fix_sample':False,
 
         "head_num":head_num,
         "dim_head":dim_head,
         "feature_d":feature_d,
-        # "use_cos":use_cos,
         "nonlinear":nonlinear,
         "out2_neck":out2_neck,
         "mlp_dim":mlp_dim,
@@ -153,17 +132,7 @@ def main():
     print('creating model...')
 
     regular_model = MyModel(args,classnames=dataset_classes, clip_model=clip_model).cuda()
-    # regular_model = torch.nn.DataParallel(regular_model)
-    # if args['resume']:
-    #     if os.path.isfile(args['resume']):
-    #         print("=> loading checkpoint '{}'".format(args['resume']))
-    #         checkpoint = torch.load(args['resume'])
-    #         filtered_dict = {k.replace("module.",""): v for k, v in checkpoint['state_dict'].items()}
-    #         regular_model.load_state_dict(filtered_dict)
-    #     else:
-    #         print("=> no checkpoint found at '{}'".format(args['resume']))
 
-    # model = torch.nn.DataParallel(model)
     engine = MultiLabelEngine(args)
 
     if args['dataset']=='voc-lt': 
@@ -187,7 +156,7 @@ def main():
 
     print("test mAP:{}".format(regular_map))
     head_AP, middle_AP, tail_AP, head, medium, tail = ltAnalysis(regular_ap, args['dataset'])
-    filename = os.path.join('log/log_rebuttal', str(args['dataset'])+"_"+args['resume'][args['resume'].rfind("/")+1:].replace(".ckpt","_{}_{}.txt".format(feature, regular_map)))
+    filename = os.path.join('log', str(args['dataset'])+"_"+args['resume'][args['resume'].rfind("/")+1:].replace(".ckpt","_{}_{}.txt".format(feature, regular_map)))
     with open(filename,'a') as f:
         f.write(str(args)+"\n")
         f.write("=================================================>>>>>>> OP, OR, OF1, CP, CR, CF1:"+"\n")
