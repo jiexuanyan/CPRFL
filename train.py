@@ -10,20 +10,11 @@ import torch.utils.data.distributed
 import torchvision.transforms as transforms
 from torch.optim import lr_scheduler
 from src.helper_functions.helper_functions import ModelEma, add_weight_decay
-# from src.loss_functions.losses import AsymmetricLoss,CosLoss
-from src.loss_functions.losses import CosLoss
-# from randaugment import RandAugment
-# from src.models.build_model_Decoder_2proto import MyModel
-# from src.models.build_model_TF import MyModel
-# from src.models.model_init_text import MyModel
-# from src.models.model_coop import MyModel
-from src.models.model_visual_fine import MyModel
-# from src.models.model_cocoop import MyModel
+from randaugment import RandAugment
+from src.models.build_model_TF import MyModel
+
 import torch.nn as nn
 from utils.LT_engine_grouplr import *
-# from utils.engine_grouplr_2proto import *
-# from utils.engine_nocos import MultiLabelEngine
-# from src.data_loader.coco import COCO2014
 from src.data_loader.datasets import build_dataset
 from src.loss_functions.dbl import *
 from src.loss_functions.asl import *
@@ -68,9 +59,9 @@ def main_coco():
     args = parser.parse_args()
 
     if args.pretrain_clip == "RN50":
-        pretrain_clip_path = '/data2/yanjiexuan/huggingface/openai/pretrained/RN50.pt'
+        pretrain_clip_path = 'data/huggingface/openai/pretrained/RN50.pt'
     elif args.pretrain_clip == "ViT16":
-        pretrain_clip_path = '/data2/yanjiexuan/huggingface/openai/pretrained/ViT-B-16.pt'
+        pretrain_clip_path = 'data/huggingface/openai/pretrained/ViT-B-16.pt'
 
     print(f"Loading CLIP (backbone: {args.pretrain_clip})")
     clip_model, preprocess = clip.load(pretrain_clip_path, device='cpu', jit=False) # Must set jit=False for training
@@ -82,17 +73,7 @@ def main_coco():
     #         p.grad.data = p.grad.data.float() 
     
     # clip.model.convert_weights(clip_model) # Actually this line is unnecessary since clip by default already on float16
-    # loading dataset
-    # train_dataset = COCO2014(root=args.data,
-    #                          phase='train',
-    #                          transform=transforms.Compose([
-    #                              transforms.Resize((args.image_size, args.image_size)),
-    #                              CutoutPIL(cutout_factor=0.5),
-    #                              RandAugment(),
-    #                              transforms.ToTensor(),
-    #                          ]),
-    #                          inp_name='data/coco/coco_glove_word2vec_mlgcn.pkl'
-    #                          )
+
     if args.dataset == 'coco-lt':
         dataset_classes = [
             'person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus', 'train',
@@ -109,17 +90,9 @@ def main_coco():
             'oven', 'toaster', 'sink', 'refrigerator', 'book', 'clock', 'vase',
             'scissors', 'teddy_bear', 'hair_drier', 'toothbrush'
             ]
-        train_dataset = build_dataset(dataset=args.dataset, split='train', inp_name='/home/yanjiexuan/multi-label-fsl/RC-Tran-LT/data/coco/coco_glove_300_coco_sequence.pkl')
+        train_dataset = build_dataset(dataset=args.dataset, split='train')
 
-    # val_dataset = COCO2014(root=args.data,
-    #                        phase='val',
-    #                        transform=transforms.Compose([
-    #                            transforms.Resize((args.image_size, args.image_size)),
-    #                            transforms.ToTensor(),
-    #                        ]),
-    #                        inp_name='data/coco/coco_glove_word2vec_mlgcn.pkl'
-    #                        )
-        val_dataset = build_dataset(dataset=args.dataset, split='test', inp_name='/home/yanjiexuan/multi-label-fsl/RC-Tran-LT/data/coco/coco_glove_300_coco_sequence.pkl')
+        val_dataset = build_dataset(dataset=args.dataset, split='test')
     
     else:
         dataset_classes = [
@@ -127,8 +100,8 @@ def main_coco():
             'cat', 'chair', 'cow', 'diningtable', 'dog', 'horse','motorbike', 
             'person', 'pottedplant', 'sheep', 'sofa', 'train','tvmonitor'
             ]
-        train_dataset = build_dataset(dataset=args.dataset, split='train', inp_name='/home/yanjiexuan/multi-label-fsl/RC-Tran-LT/data/voc/voc_glove_word2vec.pkl')
-        val_dataset = build_dataset(dataset=args.dataset, split='test', inp_name='/home/yanjiexuan/multi-label-fsl/RC-Tran-LT/data/voc/voc_glove_word2vec.pkl')
+        train_dataset = build_dataset(dataset=args.dataset, split='train')
+        val_dataset = build_dataset(dataset=args.dataset, split='test')
 
     # Pytorch Data loader
     train_loader = torch.utils.data.DataLoader(
@@ -141,9 +114,9 @@ def main_coco():
 
     # loss functions
     if args.dataset == 'coco-lt':
-        freq_file = '/home/yanjiexuan/multi-label-fsl/RC-Tran-LT/data/coco/class_freq.pkl'
+        freq_file = './data/coco/class_freq.pkl'
     elif args.dataset == 'voc-lt':
-        freq_file='/home/yanjiexuan/multi-label-fsl/RC-Tran-LT/data/voc/class_freq.pkl'
+        freq_file='./data/voc/class_freq.pkl'
 
     if args.loss_function == 'bce':
         loss_function = nn.BCEWithLogitsLoss()
@@ -275,32 +248,11 @@ def main_coco():
     weight_decay = 1e-4
     # loss function
     criterion = nn.ModuleList([])
-    # overall classification loss function
-    
-    # criterion.append(AsymmetricLoss(gamma_neg=4, gamma_pos=0, clip=0.05, disable_torch_grad_focal_loss=True))
     criterion.append(loss_function)
-    criterion.append(CosLoss(args['num_classes'], 0.5))
-    # criterion.append(AsymmetricLoss(gamma_neg=4, gamma_pos=0, clip=0.05, disable_torch_grad_focal_loss=True))
-    # criterion.append(AsymmetricLoss(gamma_neg=4, gamma_pos=0, clip=0.05, disable_torch_grad_focal_loss=True))
-    # visual space classification loss function
-    # semantic space classification loss function
-
-    # criterion.append(CosLoss(args['num_classes'],0.5))
-    # for para in models[0].Backbone.parameters():
-        # para.requires_grad = False
 
     parameters = add_weight_decay(models[0], weight_decay)
     optimizer = torch.optim.AdamW(params=parameters, lr=args['lr'], weight_decay=0) # true wd, filter_bias_and_bn
 
-    # param_dicts = [{"params": [p for n, p in models[0].named_parameters() if p.requires_grad]}]
-    # optimizer = torch.optim.AdamW(params=param_dicts, lr=args['lr'], weight_decay=weight_decay)  # true wd, filter_bias_and_bn
-
-    # param_dicts = [{"params": [p for n, p in models[0].named_parameters() if p.requires_grad]},]
-    # optimizer = getattr(torch.optim,'AdamW')(
-    #         param_dicts,
-    #         lr=args['lr'],
-    #         betas=(0.9, 0.99), eps=1e-08, weight_decay=weight_decay
-    #     )
     steps_per_epoch = len(train_loader)
     scheduler = lr_scheduler.OneCycleLR(optimizer, max_lr=args['lr'], steps_per_epoch=steps_per_epoch, epochs=Epochs,
                                         pct_start=0.1)
