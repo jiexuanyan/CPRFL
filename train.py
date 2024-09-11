@@ -25,13 +25,13 @@ import clip
 
 
 parser = argparse.ArgumentParser(description='PyTorch MS_COCO Training')
-parser.add_argument('--data', help='path to dataset', default='/data/yanjiexuan/coco')
+parser.add_argument('--data', help='path to dataset', default='data/coco')
 parser.add_argument('--dataset', default='coco-lt', type=str, choices=['voc-lt', 'coco-lt'], help='dataset name')
 parser.add_argument('--image-size', default=448, type=int,
                     metavar='N', help='input image size (default: 448)')
 parser.add_argument('--lr', default=1e-5, type=float)
 parser.add_argument('--backbone', default='resnet101')
-parser.add_argument('--pretrained', default='/data2/yanjiexuan/checkpoints/RC-Tran/pretrained_models/resnet101.pth', type=str)
+parser.add_argument('--pretrained', default='data/checkpoints/pretrained_models/resnet101.pth', type=str)
 parser.add_argument('--num-classes', default=80)
 parser.add_argument('-j', '--workers', default=2, type=int, metavar='N',
                     help='number of data loading workers (default: 16)')
