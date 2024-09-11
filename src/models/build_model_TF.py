@@ -4,11 +4,10 @@ import torch
 import torch.nn.functional as F
 import torchvision.models as models
 from .TF import Transformer
-from exp import *
+from config import *
 
 import clip
 
-# from .clip_text import CLIP_Text
 
 class TextEncoder(nn.Module):
     def __init__(self, clip_model):
@@ -79,15 +78,6 @@ class MyModel(nn.Module):
 
         self.prompts = self.get_tokenized_prompts(classnames)
         self.text_encoder = TextEncoder(clip_model)
-        # print("fc gelu")
-        # not work here
-        # self.fc = nn.Sequential(
-        #     nn.Linear(2048, feature_d*2),
-        #     nn.Identity(),
-        #     nn.GELU(),
-        #     # nn.ReLU(),
-        #     nn.Linear(feature_d*2, feature_d)
-        #     )
         
         if not args['train']:
             print("==============> Eval with visual dropout.")
@@ -134,18 +124,8 @@ class MyModel(nn.Module):
         self.dim_features = 2048
         #CLIP_RN50的输出特征为1024，CLIP_ViT16的输出特征为512
         self.dim_semantic = 1024
-
-    # def encode_text(self, text):
-    #     try:
-    #         text_features = self.text_encoder(text)
-    #     except:
-    #         # CUDA out of memory
-    #         text_split = torch.split(text, 1000)
-    #         text_features = torch.cat([self.text_encoder(x) for x in text_split])
-    #     return text_features
         
     def forward(self, img):
-    # def forward(self,img):
         batch_size = img.size(0)
 
         prompts = self.prompts
